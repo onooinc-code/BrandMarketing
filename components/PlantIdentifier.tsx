@@ -1,18 +1,16 @@
-
 import React, { useState } from 'react';
+import type { ProductInfo } from '../types';
 
-const ProductProfile: React.FC = () => {
-    const [productInfo, setProductInfo] = useState({
-        name: 'BrandERP',
-        company: 'Onoo-اونو',
-        description: 'نظام ERP متكامل لإدارة موارد الشركات بفاعلية.',
-        targetAudience: 'الشركات المتوسطة والكبيرة في قطاع الصناعة والتجزئة.',
-        usp: 'سهولة الاستخدام والتخصيص مع دعم فني على مدار الساعة.'
-    });
+interface ProductProfileProps {
+    productInfo: ProductInfo;
+    setProductInfo: (info: ProductInfo) => void;
+}
+
+const ProductProfile: React.FC<ProductProfileProps> = ({ productInfo, setProductInfo }) => {
     const [saved, setSaved] = useState(false);
 
     const handleSave = () => {
-        // In a real app, this would save to context or a state management library.
+        // State is already updated on change, this just gives user feedback
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
     };
@@ -20,7 +18,7 @@ const ProductProfile: React.FC = () => {
     return (
         <div className="flex flex-col items-center">
             <h2 className="text-2xl font-bold text-blue-300 mb-4">ملف المنتج</h2>
-            <p className="text-gray-400 mb-6 text-center">أدخل معلومات منتجك الأساسية هنا ليستخدمها الذكاء الاصطناعي في توليد المحتوى والخطط.</p>
+            <p className="text-gray-400 mb-6 text-center">أدخل معلومات منتجك الأساسية هنا ليستخدمها الذكاء الاصطناعي في توليد المحتوى والخطط. يتم الحفظ تلقائياً.</p>
 
             <div className="w-full max-w-2xl p-6 bg-gray-700/50 rounded-lg shadow-inner space-y-4">
                 <div>
@@ -49,7 +47,7 @@ const ProductProfile: React.FC = () => {
                 onClick={handleSave}
                 className="mt-6 px-8 py-3 bg-blue-600 text-white font-bold rounded-full transition-all duration-300 hover:bg-blue-700 flex items-center"
             >
-                {saved ? 'تم الحفظ!' : 'حفظ المعلومات'}
+                {saved ? 'تم الحفظ!' : 'تأكيد الحفظ'}
             </button>
         </div>
     );

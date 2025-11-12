@@ -1,11 +1,14 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Chat } from '@google/genai';
 import type { ChatMessage, GroundingChunk } from '../types';
 
-const MarketingChatbot: React.FC = () => {
+interface MarketingChatbotProps {
+    messages: ChatMessage[];
+    setMessages: (messages: ChatMessage[]) => void;
+}
+
+const MarketingChatbot: React.FC<MarketingChatbotProps> = ({ messages, setMessages }) => {
     const [chat, setChat] = useState<Chat | null>(null);
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [userInput, setUserInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -20,14 +23,17 @@ const MarketingChatbot: React.FC = () => {
                     systemInstruction: 'أنت خبير تسويق محترف ومتخصص في برامج ERP. اسم المنتج هو BrandERP واسم الشركة هو Onoo. قدم إجابات واستراتيجيات تسويقية دقيقة ومبتكرة ومفصلة. استخدم بحث جوجل لتقديم أحدث المعلومات.',
                     tools: [{googleSearch: {}}],
                 },
+                history: messages.slice(1).map(m => ({ // Exclude initial message
+                    role: m.role,
+                    parts: m.content
+                }))
             });
             setChat(chatSession);
-            setMessages([{ role: 'model', content: "أهلاً بك! أنا خبير التسويق الرقمي لـ BrandERP. كيف يمكنني مساعدتك في خطتك التسويقية اليوم؟" }]);
         } catch (err) {
             console.error("Failed to initialize chat:", err);
             setError("لم يتم بدء جلسة المحادثة. يرجى التحقق من مفتاح API وتحديث الصفحة.");
         }
-    }, []);
+    }, []); // Chat history is now managed by App state, so we only init once.
 
     useEffect(() => {
         if (chatContainerRef.current) {
@@ -39,7 +45,8 @@ const MarketingChatbot: React.FC = () => {
         if (!userInput.trim() || !chat || loading) return;
 
         const userMessage: ChatMessage = { role: 'user', content: userInput };
-        setMessages(prev => [...prev, userMessage]);
+        const newMessages = [...messages, userMessage];
+        setMessages(newMessages);
         setUserInput('');
         setLoading(true);
         setError('');
@@ -50,7 +57,7 @@ const MarketingChatbot: React.FC = () => {
             const responseStream = await chat.sendMessageStream({ message: userInput });
 
             const modelMessage: ChatMessage = { role: 'model', content: '' };
-            setMessages(prev => [...prev, modelMessage]);
+            setMessages([...newMessages, modelMessage]);
 
             for await (const chunk of responseStream) {
                 fullResponse += chunk.text;
@@ -62,13 +69,13 @@ const MarketingChatbot: React.FC = () => {
                 });
 
                 setMessages(prev => {
-                    const newMessages = [...prev];
-                    const lastMessage = newMessages[newMessages.length - 1];
+                    const updatedMessages = [...prev];
+                    const lastMessage = updatedMessages[updatedMessages.length - 1];
                     lastMessage.content = fullResponse;
                     if (sources.size > 0) {
                          lastMessage.sources = Array.from(sources.values()).map(web => ({ web }));
                     }
-                    return newMessages;
+                    return updatedMessages;
                 });
             }
         } catch (err) {
@@ -79,7 +86,7 @@ const MarketingChatbot: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [userInput, chat, loading]);
+    }, [userInput, chat, loading, messages, setMessages]);
 
     return (
         <div className="flex flex-col h-[60vh] max-h-[700px]">

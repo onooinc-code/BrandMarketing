@@ -1,14 +1,19 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, LiveSession, LiveServerMessage, Modality, Blob } from '@google/genai';
 import { decode, encode, decodeAudioData } from '../utils/audioUtils';
+import type { VoiceConsultantState } from '../types';
 
 type ConnectionState = 'IDLE' | 'CONNECTING' | 'CONNECTED' | 'CLOSED' | 'ERROR';
 
-const VoiceConsultant: React.FC = () => {
+interface VoiceConsultantProps {
+    voiceState: VoiceConsultantState;
+    setVoiceState: (state: VoiceConsultantState) => void;
+}
+
+const VoiceConsultant: React.FC<VoiceConsultantProps> = ({ voiceState, setVoiceState }) => {
     const [connectionState, setConnectionState] = useState<ConnectionState>('IDLE');
     const [transcription, setTranscription] = useState<{ user: string; model: string }>({ user: '', model: '' });
-    const [history, setHistory] = useState<{ role: 'user' | 'model'; content: string }[]>([]);
+    const { history } = voiceState;
 
     const sessionRef = useRef<LiveSession | null>(null);
     const inputAudioContextRef = useRef<AudioContext | null>(null);
@@ -51,7 +56,6 @@ const VoiceConsultant: React.FC = () => {
     const startConversation = async () => {
         if (connectionState !== 'IDLE' && connectionState !== 'CLOSED' && connectionState !== 'ERROR') return;
         setConnectionState('CONNECTING');
-        setHistory([]);
         setTranscription({ user: '', model: '' });
         userTranscriptionRef.current = '';
         modelTranscriptionRef.current = '';
@@ -101,7 +105,9 @@ const VoiceConsultant: React.FC = () => {
                              setTranscription(prev => ({...prev, user: userTranscriptionRef.current}));
                         }
                         if (message.serverContent?.turnComplete) {
-                            setHistory(prev => [...prev, {role: 'user', content: userTranscriptionRef.current}, {role: 'model', content: modelTranscriptionRef.current}])
+                            const newHistory = [...history, {role: 'user', content: userTranscriptionRef.current}, {role: 'model', content: modelTranscriptionRef.current}];
+                            setVoiceState({ history: newHistory });
+
                             setTranscription({ user: '', model: '' });
                             userTranscriptionRef.current = '';
                             modelTranscriptionRef.current = '';
@@ -153,6 +159,10 @@ const VoiceConsultant: React.FC = () => {
             setConnectionState('IDLE');
         }
     };
+    
+    const clearHistory = () => {
+        setVoiceState({ history: [] });
+    }
 
     const getButtonState = () => {
         switch (connectionState) {
@@ -178,19 +188,22 @@ const VoiceConsultant: React.FC = () => {
                 {text}
             </button>
             
-            <div className="w-full max-w-2xl min-h-[200px] bg-gray-900/50 p-4 rounded-lg">
+            <div className="w-full max-w-2xl min-h-[150px] bg-gray-900/50 p-4 rounded-lg">
                 <p className="text-right text-blue-400 font-semibold">أنت: <span className="text-gray-200 font-normal">{transcription.user}</span></p>
                 <p className="text-right text-indigo-400 font-semibold mt-2">الخبير: <span className="text-gray-200 font-normal">{transcription.model}</span></p>
             </div>
 
             <div className="mt-6 w-full max-w-2xl">
-                 <h3 className="text-xl font-bold text-blue-300 mb-2">سجل المحادثة</h3>
-                 <div className="space-y-2 text-right">
-                     {history.map((item, index) => (
+                 <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-xl font-bold text-blue-300">سجل المحادثة</h3>
+                    <button onClick={clearHistory} className="px-3 py-1 text-xs bg-red-800 text-white rounded-md hover:bg-red-700">مسح السجل</button>
+                 </div>
+                 <div className="space-y-2 text-right bg-gray-900/20 p-4 rounded-lg max-h-48 overflow-y-auto">
+                     {history.length > 0 ? history.map((item, index) => (
                          <p key={index} className={`${item.role === 'user' ? 'text-blue-400' : 'text-indigo-400'}`}>
                              <span className="font-bold capitalize">{item.role === 'user' ? 'أنت' : 'الخبير'}: </span>{item.content}
                          </p>
-                     ))}
+                     )) : <p className="text-gray-500">لا يوجد سجل محادثة حتى الآن.</p>}
                  </div>
             </div>
             

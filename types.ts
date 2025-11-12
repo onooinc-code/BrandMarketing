@@ -12,3 +12,42 @@ export interface ChatMessage {
   content: string;
   sources?: GroundingChunk[];
 }
+
+export interface ProductInfo {
+    name: string;
+    company: string;
+    description: string;
+    targetAudience: string;
+    usp: string;
+}
+
+export interface PostGeneratorState {
+    goal: string;
+    topic: string;
+    post: string;
+    image: string | null;
+    placement: '1:1' | '16:9' | '9:16';
+}
+
+export interface AdCreativeState {
+    prompt: string;
+    image: string | null;
+    placement: '1:1' | '16:9' | '9:16';
+}
+
+export interface VoiceConsultantState {
+    history: { role: 'user' | 'model'; content: string }[];
+}
+
+export interface AppState {
+    productInfo: ProductInfo;
+    chatHistory: ChatMessage[];
+    postGenerator: PostGeneratorState;
+    adCreative: AdCreativeState;
+    voiceConsultant: VoiceConsultantState;
+    logos: {
+        brandErp: string | null;
+        onoo: string | null;
+    };
+    activeTab: ActiveTab;
+}
