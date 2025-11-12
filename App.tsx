@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { ActiveTab, AppState, ProductInfo, ChatMessage, PostGeneratorState, AdCreativeState, VoiceConsultantState } from './types';
-import ProductProfile from './components/PlantIdentifier';
-import MarketingChatbot from './components/GardeningChatbot';
-import PostGenerator from './components/ImageEditor';
-import AdCreativeGenerator from './components/ImageGenerator';
-import VoiceConsultant from './components/VoiceAssistant';
+import ProductProfile from './components/ProductProfile';
+import MarketingChatbot from './components/MarketingChatbot';
+import PostGenerator from './components/PostGenerator';
+import AdCreativeGenerator from './components/AdCreativeGenerator';
+import VoiceConsultant from './components/VoiceConsultant';
 import IdentityManager from './components/IdentityManager';
 
 const OnooIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M12 6V3m0 18v-3" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 16a4 4 0 100-8 4 4 0 000 8z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 16a4 4 R0 100-8 4 4 0 000 8z" />
     </svg>
 );
 
@@ -54,31 +54,52 @@ const App: React.FC = () => {
     // Load state on initial render: try server first, then localStorage
     useEffect(() => {
         const loadProject = async () => {
+            let loadedState = null;
             try {
                 const response = await fetch('/api/project');
                 if (response.ok) {
-                    const serverState = await response.json();
-                    setAppState(serverState);
+                    loadedState = await response.json();
                     console.log("Project loaded from server.");
                 } else if (response.status === 404) {
                     console.log("No project on server, trying localStorage.");
                     const savedState = localStorage.getItem('onooMarketingAIState');
                     if (savedState) {
-                        setAppState(JSON.parse(savedState));
+                        loadedState = JSON.parse(savedState);
                         console.log("Project loaded from localStorage.");
                     }
                 } else {
-                    throw new Error(`Server responded with status: ${response.status}`);
+                    console.error(`Server responded with status: ${response.status}`);
                 }
             } catch (error) {
                 console.error("Failed to load project from server, falling back to localStorage:", error);
                 const savedState = localStorage.getItem('onooMarketingAIState');
                 if (savedState) {
-                   setAppState(JSON.parse(savedState));
+                   try {
+                       loadedState = JSON.parse(savedState);
+                   } catch (e) {
+                       console.error("Failed to parse state from localStorage", e);
+                   }
                 }
             }
+    
+            if (loadedState) {
+                // Ensure the loaded state is valid and has the correct structure.
+                // This prevents errors from old/corrupted saved data and solves the bug.
+                const validatedState: AppState = {
+                    ...initialAppState,
+                    ...loadedState,
+                    productInfo: { ...initialAppState.productInfo, ...(loadedState.productInfo || {}) },
+                    chatHistory: Array.isArray(loadedState.chatHistory) ? loadedState.chatHistory : initialAppState.chatHistory,
+                    postGenerator: { ...initialAppState.postGenerator, ...(loadedState.postGenerator || {}) },
+                    adCreative: { ...initialAppState.adCreative, ...(loadedState.adCreative || {}) },
+                    voiceConsultant: { ...initialAppState.voiceConsultant, ...(loadedState.voiceConsultant || {}) },
+                    logos: { ...initialAppState.logos, ...(loadedState.logos || {}) },
+                    activeTab: loadedState.activeTab || initialAppState.activeTab
+                };
+                setAppState(validatedState);
+            }
         };
-
+    
         loadProject();
     }, []);
 
