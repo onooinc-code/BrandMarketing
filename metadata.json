@@ -1,0 +1,7 @@
+{
+  "name": "Onoo Marketing AI | خبير تسويق أونو",
+  "description": "مساعد تسويق ذكي لبرنامج BrandERP من شركة أونو. يضع خطط التسويق، يولد محتوى إبداعي، ويقدم استشارات فورية لتعزيز نمو أعمالك.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
