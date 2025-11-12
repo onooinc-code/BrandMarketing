@@ -45,28 +45,69 @@ const initialAppState: AppState = {
     activeTab: 'PRODUCT_PROFILE',
 };
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const App: React.FC = () => {
     const [appState, setAppState] = useState<AppState>(initialAppState);
+    const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
-    // Load state from localStorage on initial render
+    // Load state on initial render: try server first, then localStorage
     useEffect(() => {
-        try {
-            const savedState = localStorage.getItem('onooMarketingAIState');
-            if (savedState) {
-                setAppState(JSON.parse(savedState));
+        const loadProject = async () => {
+            try {
+                const response = await fetch('/api/project');
+                if (response.ok) {
+                    const serverState = await response.json();
+                    setAppState(serverState);
+                    console.log("Project loaded from server.");
+                } else if (response.status === 404) {
+                    console.log("No project on server, trying localStorage.");
+                    const savedState = localStorage.getItem('onooMarketingAIState');
+                    if (savedState) {
+                        setAppState(JSON.parse(savedState));
+                        console.log("Project loaded from localStorage.");
+                    }
+                } else {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+            } catch (error) {
+                console.error("Failed to load project from server, falling back to localStorage:", error);
+                const savedState = localStorage.getItem('onooMarketingAIState');
+                if (savedState) {
+                   setAppState(JSON.parse(savedState));
+                }
             }
-        } catch (error) {
-            console.error("Failed to load state from localStorage", error);
-        }
+        };
+
+        loadProject();
     }, []);
 
-    // Save state to localStorage whenever it changes
+    // Save state to localStorage as a backup whenever it changes
     useEffect(() => {
         try {
             localStorage.setItem('onooMarketingAIState', JSON.stringify(appState));
         } catch (error) {
             console.error("Failed to save state to localStorage", error);
+        }
+    }, [appState]);
+
+    const handleSaveToServer = useCallback(async () => {
+        setSaveStatus('saving');
+        try {
+            const response = await fetch('/api/project', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(appState),
+            });
+            if (!response.ok) {
+                throw new Error('Failed to save to server');
+            }
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus('idle'), 2000);
+        } catch (error) {
+            console.error("Save failed:", error);
+            setSaveStatus('error');
+            setTimeout(() => setSaveStatus('idle'), 3000);
         }
     }, [appState]);
 
@@ -90,7 +131,7 @@ const App: React.FC = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'onoo-marketing-project.json';
+        a.download = 'onoo-marketing-project-backup.json';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -106,8 +147,8 @@ const App: React.FC = () => {
                     const text = e.target?.result;
                     if (typeof text === 'string') {
                         const importedState = JSON.parse(text);
-                        // Basic validation could be added here
                         setAppState(importedState);
+                        alert("تم استيراد النسخة الاحتياطية بنجاح. اضغط على 'حفظ المشروع' لرفعها للسيرفر.");
                     }
                 } catch (error) {
                     console.error("Failed to import project file", error);
@@ -175,6 +216,19 @@ const App: React.FC = () => {
         );
     };
 
+    const getSaveButtonContent = () => {
+        switch (saveStatus) {
+            case 'saving':
+                return <><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>جاري الحفظ...</>;
+            case 'saved':
+                return 'تم الحفظ!';
+            case 'error':
+                return 'فشل الحفظ';
+            default:
+                return 'حفظ المشروع';
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 to-blue-900 font-sans" style={{fontFamily: 'Tahoma, sans-serif'}}>
             <div className="container mx-auto p-4 max-w-5xl">
@@ -203,10 +257,22 @@ const App: React.FC = () => {
                 </main>
                  <footer className="text-center text-gray-500 mt-8 text-sm">
                     <p>مدعوم بواسطة Google Gemini. تم التطوير باستخدام React و Tailwind CSS.</p>
-                     <div className="mt-4 flex justify-center gap-4">
-                        <button onClick={handleExport} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-md hover:bg-gray-600 transition-colors">تصدير المشروع</button>
+                     <div className="mt-4 flex flex-wrap justify-center items-center gap-4">
+                        <button 
+                            onClick={handleSaveToServer}
+                            disabled={saveStatus === 'saving'}
+                            className={`px-4 py-2 rounded-md transition-colors w-40 text-white flex items-center justify-center
+                                ${saveStatus === 'idle' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                                ${saveStatus === 'saving' ? 'bg-yellow-600 cursor-not-allowed' : ''}
+                                ${saveStatus === 'saved' ? 'bg-green-600' : ''}
+                                ${saveStatus === 'error' ? 'bg-red-600' : ''}
+                            `}
+                        >
+                            {getSaveButtonContent()}
+                        </button>
+                        <button onClick={handleExport} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-md hover:bg-gray-600 transition-colors">تصدير نسخة احتياطية</button>
                         <label className="cursor-pointer px-4 py-2 bg-gray-700 text-gray-300 rounded-md hover:bg-gray-600 transition-colors">
-                            استيراد المشروع
+                            استيراد نسخة احتياطية
                             <input type="file" accept=".json" onChange={handleImport} className="hidden" />
                         </label>
                     </div>
